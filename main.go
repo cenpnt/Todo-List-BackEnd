@@ -15,6 +15,7 @@ func main() {
 	r := gin.Default()
 
 	r.GET("/users", routers.GetUsers)
+	r.GET("/user/:id", routers.GetUserByID)
 	r.POST("/signup", routers.SignUp)
 
 	r.Run()
