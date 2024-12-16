@@ -55,31 +55,30 @@ func SignUp(c *gin.Context) {
 }
 
 func GetUsers(c *gin.Context) {
-	var users []models.User
+    var users []models.User
+    // Preload only top-level tasks and load subtasks for each top-level tasks
+    if err := initializers.DB.Preload("Tasks", "parent_task_id IS NULL").Preload("Tasks.SubTasks").Find(&users).Error; err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get users"})
+        return
+    }
 
-	if err := initializers.DB.Preload("Tasks").Find(&users).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error":"Failed to get users"})
-		return
-	}
-
-	var userResponses []models.UserResponse
-	for _, user := range users {
-		userResponses = append(userResponses, models.UserResponse{
-			ID: user.ID,
-			Email: user.Email,
-			Username: user.Username,
-			Tasks: user.Tasks,
-		})
-	}
-
-	c.JSON(http.StatusOK, userResponses)
+    var userResponses []models.UserResponse
+    for _, user := range users {
+        userResponses = append(userResponses, models.UserResponse{
+            ID:       user.ID,
+            Email:    user.Email,
+            Username: user.Username,
+            Tasks:    user.Tasks,
+        })
+    }
+    c.JSON(http.StatusOK, userResponses)
 }
 
 func GetUserByID(c *gin.Context) {
 	id := c.Param("id")
 	var user models.User
 
-	if err := initializers.DB.Preload("Tasks").First(&user, id).Error; err != nil {
+	if err := initializers.DB.Preload("Tasks", "parent_task_id IS NULL").Preload("Tasks.SubTasks").First(&user, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
@@ -88,6 +87,7 @@ func GetUserByID(c *gin.Context) {
 		ID: user.ID,
 		Email: user.Email,
 		Username: user.Username,
+		Tasks: user.Tasks,
 	}
 
 	c.JSON(http.StatusOK, userResponse)
