@@ -14,9 +14,13 @@ func init() {
 func main() {
 	r := gin.Default()
 
+	// User routers
 	r.GET("/users", routers.GetUsers)
 	r.GET("/user/:id", routers.GetUserByID)
 	r.POST("/signup", routers.SignUp)
+
+	// Task routers
+	r.POST("/task", routers.CreateTask)
 
 	r.Run()
 }
