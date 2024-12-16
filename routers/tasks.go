@@ -21,6 +21,7 @@ func CreateTask(c *gin.Context) {
 
 	if task.ParentTaskID != nil {
 		var parentTask models.Task
+		// Dereference the pointer address to get the actual parentTaskID (parentTaskID is stored as a pointer (address))
 		if err := initializers.DB.First(&parentTask, *task.ParentTaskID).Error; err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Parent task does not exist"})
 			return
