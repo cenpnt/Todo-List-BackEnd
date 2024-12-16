@@ -42,22 +42,53 @@ func SignUp(c *gin.Context) {
 		return
 	}
 
-	// Omit the password for security
-	user.Password = ""
+	userResponse := models.UserResponse{
+		ID:       user.ID,
+		Email:    user.Email,
+		Username: user.Username,
+	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "User created successfully",
-		"user": user,
+		"user": userResponse,
 	})
 }
 
 func GetUsers(c *gin.Context) {
-	var users models.User
+	var users []models.User
 
 	if err := initializers.DB.Preload("Tasks").Find(&users).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error":"Failed to get users"})
 		return
 	}
 
-	c.JSON(http.StatusOK, users)
+	var userResponses []models.UserResponse
+	for _, user := range users {
+		userResponses = append(userResponses, models.UserResponse{
+			ID: user.ID,
+			Email: user.Email,
+			Username: user.Username,
+			Tasks: user.Tasks,
+		})
+	}
+
+	c.JSON(http.StatusOK, userResponses)
+}
+
+func GetUserByID(c *gin.Context) {
+	id := c.Param("id")
+	var user models.User
+
+	if err := initializers.DB.Preload("Tasks").First(&user, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	userResponse := models.UserResponse {
+		ID: user.ID,
+		Email: user.Email,
+		Username: user.Username,
+	}
+
+	c.JSON(http.StatusOK, userResponse)
 }
