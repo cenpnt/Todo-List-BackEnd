@@ -16,7 +16,6 @@ type Task struct {
 	Description  string
 	UserID       uint
 	ParentTaskID *uint  `gorm:"index"`
-	ParentTask   *Task  `gorm:"foreignKey:ParentTaskID"`
 	SubTasks     []Task `gorm:"foreignKey:ParentTaskID"`
 	IsCompleted  bool   `gorm:"default:false"`
 }
