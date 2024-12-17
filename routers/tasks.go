@@ -16,8 +16,13 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 	
-	// Hardcoded userID, replace this with JWT later
-	task.UserID = 1
+	userID, exist := c.Get("userID")
+	if !exist {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user ID"})
+		return
+	}
+
+	task.UserID = userID.(uint)
 
 	if task.ParentTaskID != nil {
 		var parentTask models.Task
