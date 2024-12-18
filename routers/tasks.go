@@ -8,6 +8,23 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+
+func GetAllTasks(c *gin.Context) {
+	userID, exist := c.Get("userID")
+	if !exist {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user ID"})
+		return
+	}
+
+	var user models.User
+	if err := initializers.DB.Preload("Tasks", "parent_task_id IS NULL").Preload("Tasks.SubTasks", recursiveSubTaskPreload).First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	} 
+
+	c.JSON(http.StatusOK, user.Tasks)
+}
+
 func CreateTask(c *gin.Context) {
 	var task models.Task
 
