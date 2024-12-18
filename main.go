@@ -22,6 +22,7 @@ func main() {
 	r.POST("/login", routers.Login)
 	
 	// Task routers
+	r.GET("/tasks", middleware.AuthMiddleware, routers.GetAllTasks)
 	r.POST("/task", middleware.AuthMiddleware, routers.CreateTask)
 
 	r.Run()
