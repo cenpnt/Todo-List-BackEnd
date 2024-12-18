@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 func SignUp(c *gin.Context) {
@@ -57,11 +58,20 @@ func SignUp(c *gin.Context) {
 	})
 }
 
+// Recursive preload function for unlimited depth
+func recursiveSubTaskPreload(db *gorm.DB) *gorm.DB {
+    return db.Preload("SubTasks", recursiveSubTaskPreload)
+}
+
 func GetUsers(c *gin.Context) {
     var users []models.User
-    // Preload only top-level tasks and load subtasks for each top-level tasks
-    if err := initializers.DB.Preload("Tasks", "parent_task_id IS NULL").Preload("Tasks.SubTasks").Find(&users).Error; err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get users"})
+    
+    if err := initializers.DB.
+        Preload("Tasks", "parent_task_id IS NULL").
+        Preload("Tasks.SubTasks", recursiveSubTaskPreload).
+        Find(&users).Error; err != nil {
+        
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get users"})
         return
     }
 
@@ -81,7 +91,7 @@ func GetUserByID(c *gin.Context) {
 	id := c.Param("id")
 	var user models.User
 
-	if err := initializers.DB.Preload("Tasks", "parent_task_id IS NULL").Preload("Tasks.SubTasks").First(&user, id).Error; err != nil {
+	if err := initializers.DB.Preload("Tasks", "parent_task_id IS NULL").Preload("Tasks.SubTasks", recursiveSubTaskPreload).First(&user, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
