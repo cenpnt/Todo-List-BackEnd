@@ -24,6 +24,7 @@ func main() {
 	// Task routers
 	r.GET("/tasks", middleware.AuthMiddleware, routers.GetAllTasks)
 	r.POST("/task", middleware.AuthMiddleware, routers.CreateTask)
+	r.PATCH("/toggleTask/:id", middleware.AuthMiddleware, routers.ToggleTask)
 
 	r.Run()
 }
