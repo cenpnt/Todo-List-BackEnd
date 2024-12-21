@@ -61,6 +61,51 @@ func CreateTask(c *gin.Context) {
 	})
 }
 
+func EditTask(c *gin.Context) {
+	id := c.Param("id")
+
+	userID, exist := c.Get("userID")
+	if !exist {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user ID"})
+        return
+	}
+
+	var task models.Task
+	if err := initializers.DB.Preload("SubTasks", recursiveSubTaskPreload).First(&task, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+        return
+	}
+
+	if task.UserID != userID {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "You are not the owner of this task"})
+        return
+	}
+
+	var data models.EditTaskRequest
+	if err := c.BindJSON(&data); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+        return
+	}
+
+	if err := initializers.DB.Model(&task).Updates(models.Task{
+		Title:       data.Title,
+		Description: data.Description,
+		IsCompleted: data.IsCompleted,
+	}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task"})
+		return
+	}
+
+	var updatedTask models.Task
+
+	if err := initializers.DB.Preload("SubTasks", recursiveSubTaskPreload).First(&updatedTask, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+        return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Task updated", "task": updatedTask})
+}
+
 func ToggleTask(c *gin.Context) {
     id := c.Param("id")
 
