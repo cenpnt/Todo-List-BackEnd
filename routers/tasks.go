@@ -6,23 +6,76 @@ import (
 	"github.com/cenpnt/Todo-List-BackEnd/initializers"
 	"github.com/cenpnt/Todo-List-BackEnd/models"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
+type TaskWithProgress struct {
+    models.Task
+    Progress float64 `json:"progress"`
+}
+
+func calculateTaskProgress(task *models.Task, db *gorm.DB) float64 {
+    if len(task.SubTasks) == 0 {
+        if task.IsCompleted {
+            return 100.0
+        }
+        return 0.0
+    }
+
+    var totalProgress float64 = 0.0
+    allSubtasksCompleted := true
+
+    for _, subtask := range task.SubTasks {
+        progress := calculateTaskProgress(&subtask, db)
+        totalProgress += progress
+        
+        if !subtask.IsCompleted {
+            allSubtasksCompleted = false
+        }
+    }
+
+    if allSubtasksCompleted && !task.IsCompleted {
+		// If all of the subtasks is completed but the parent task is not completed
+        task.IsCompleted = true
+        db.Model(&models.Task{}).Where("id = ?", task.ID).Update("is_completed", true)
+    } else if !allSubtasksCompleted && task.IsCompleted {
+		// If all of the subtasks is not completed but the parent task is completed
+		task.IsCompleted = false
+		db.Model(&models.Task{}).Where("id = ?", task.ID).Update("is_completed", false)
+	}
+    
+    return totalProgress / float64(len(task.SubTasks))
+}
+
+func convertToTaskWithProgress(tasks []models.Task, db *gorm.DB) []TaskWithProgress {
+    var result []TaskWithProgress
+    for _, task := range tasks {
+        taskWithProgress := TaskWithProgress{
+            Task:     task,
+            Progress: calculateTaskProgress(&task, db),
+        }
+        result = append(result, taskWithProgress)
+    }
+    return result
+}
 
 func GetAllTasks(c *gin.Context) {
-	userID, exist := c.Get("userID")
-	if !exist {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user ID"})
-		return
-	}
+    userID, exist := c.Get("userID")
+    if !exist {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user ID"})
+        return
+    }
 
-	var user models.User
-	if err := initializers.DB.Preload("Tasks", "parent_task_id IS NULL").Preload("Tasks.SubTasks", recursiveSubTaskPreload).First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	} 
+    var user models.User
+    if err := initializers.DB.Preload("Tasks", "parent_task_id IS NULL").
+        Preload("Tasks.SubTasks", recursiveSubTaskPreload).
+        First(&user, userID).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+        return
+    }
 
-	c.JSON(http.StatusOK, user.Tasks)
+    tasksWithProgress := convertToTaskWithProgress(user.Tasks, initializers.DB)
+    c.JSON(http.StatusOK, tasksWithProgress)
 }
 
 func CreateTask(c *gin.Context) {
@@ -138,6 +191,15 @@ func ToggleTask(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task"})
         return
     }
+
+	if task.ParentTaskID != nil {
+		var parentTask models.Task
+		if err := initializers.DB.Preload("SubTasks", recursiveSubTaskPreload).First(&parentTask, task.ParentTaskID).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch parent task"})
+            return
+		}
+		calculateTaskProgress(&parentTask, initializers.DB)
+	}
 
     c.JSON(http.StatusOK, gin.H{"message": "Task updated", "task": task})
 }
