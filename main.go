@@ -25,6 +25,7 @@ func main() {
 	r.GET("/tasks", middleware.AuthMiddleware, routers.GetAllTasks)
 	r.POST("/create-task", middleware.AuthMiddleware, routers.CreateTask)
 	r.PATCH("/toggleTask/:id", middleware.AuthMiddleware, routers.ToggleTask)
+	r.PUT("/edit-task/:id", middleware.AuthMiddleware, routers.EditTask)
 	r.DELETE("/delete-task/:id", middleware.AuthMiddleware, routers.DeleteTask)
 
 	r.Run()
