@@ -96,3 +96,30 @@ func ToggleTask(c *gin.Context) {
 
     c.JSON(http.StatusOK, gin.H{"message": "Task updated", "task": task})
 }
+
+func DeleteTask(c *gin.Context) {
+	id := c.Param("id")
+	userID, exist := c.Get("userID")
+	if !exist {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user ID"})
+        return
+	}
+
+	var task models.Task
+	if err := initializers.DB.Preload("SubTasks", recursiveSubTaskPreload).First(&task, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+        return
+	}
+
+	if task.UserID != userID {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "You are not the owner of this task"})
+        return
+	}
+
+	if err := initializers.DB.Delete(&task).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete task"})
+        return
+    }
+
+	c.JSON(http.StatusOK, gin.H{"message": "Task deleted successfully"})
+}
